@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ניהול נוכחות עובדים</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      direction: rtl;
+      text-align: right;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    const { useState, useEffect } = React;
+
+    const HRAttendanceApp = () => {
+      const [workers, setWorkers] = useState([]);
+      const [newWorkerName, setNewWorkerName] = useState('');
+      const [selectedWorker, setSelectedWorker] = useState('');
+      const [checkins, setCheckins] = useState([]);
+      const [activeTab, setActiveTab] = useState('checkin');
+      const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+
+      // Load data from localStorage
+      useEffect(() => {
+        const savedWorkers = localStorage.getItem('hrWorkers');
+        const savedCheckins = localStorage.getItem('hrCheckins');
+        if (savedWorkers) setWorkers(JSON.parse(savedWorkers));
+        if (savedCheckins) setCheckins(JSON.parse(savedCheckins));
+      }, []);
+
+      // Save data to localStorage
+      useEffect(() => {
+        localStorage.setItem('hrWorkers', JSON.stringify(workers));
+      }, [workers]);
+
+      useEffect(() => {
+        localStorage.setItem('hrCheckins', JSON.stringify(checkins));
+      }, [checkins]);
+
+      const addWorker = () => {
+        if (newWorkerName.trim() && !workers.includes(newWorkerName)) {
+          setWorkers([...workers, newWorkerName]);
+          setNewWorkerName('');
+        }
+      };
+
+      const deleteWorker = (name) => {
+        setWorkers(workers.filter(w => w !== name));
+        setCheckins(checkins.filter(c => c.workerName !== name));
+      };
+
+      const handleCheckIn = () => {
+        if (!selectedWorker) return;
+        const now = new Date();
+        const timestamp = now.toISOString();
+        setCheckins([...checkins, {
+          id: Date.now(),
+          workerName: selectedWorker,
+          checkInTime: timestamp,
+          checkOutTime: null
+        }]);
+      };
+
+      const handleCheckOut = (checkinId) => {
+        const now = new Date().toISOString();
+        setCheckins(checkins.map(c =>
+          c.id === checkinId ? { ...c, checkOutTime: now } : c
+        ));
+      };
+
+      const formatDateTime = (isoString) => {
+        const date = new Date(isoString);
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return { time: `${hours}:${minutes}`, date: `${day}/${month}/${year}` };
+      };
+
+      const getDayString = (isoString) => {
+        const date = new Date(isoString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${year}-${month}-${day}`;
+      };
+
+      // Today's check-ins
+      const today = new Date().toISOString().slice(0, 10);
+      const todayCheckins = checkins.filter(c => getDayString(c.checkInTime) === today);
+
+      // Monthly report
+      const monthCheckins = checkins.filter(c => c.checkInTime.slice(0, 7) === selectedMonth);
+      const monthStats = workers.map(worker => {
+        const workerCheckins = monthCheckins.filter(c => c.workerName === worker);
+        const daysPresent = new Set(workerCheckins.map(c => getDayString(c.checkInTime))).size;
+        const avgHours = workerCheckins.length > 0
+          ? (workerCheckins.reduce((sum, c) => {
+              if (c.checkOutTime) {
+                const checkIn = new Date(c.checkInTime).getTime();
+                const checkOut = new Date(c.checkOutTime).getTime();
+                return sum + (checkOut - checkIn) / (1000 * 60 * 60);
+              }
+              return sum;
+            }, 0) / workerCheckins.length).toFixed(1)
+          : '-';
+        return { worker, daysPresent, avgHours, totalCheckins: workerCheckins.length };
+      });
+
+      return React.createElement('div', { style: { direction: 'rtl', textAlign: 'right' }, className: 'min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6' },
+        React.createElement('div', { className: 'max-w-6xl mx-auto' },
+          // Header
+          React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-6 mb-6' },
+            React.createElement('h1', { className: 'text-4xl font-bold text-indigo-800 mb-2' }, 'ניהול נוכחות עובדים'),
+            React.createElement('p', { className: 'text-gray-600' }, 'מערכת תיעוד נוכחות עובדים בזמן אמת')
+          ),
+
+          // Worker Management
+          React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-6 mb-6' },
+            React.createElement('h2', { className: 'text-2xl font-bold text-indigo-800 mb-4' }, 'ניהול עובדים'),
+            React.createElement('div', { className: 'flex gap-2 mb-4' },
+              React.createElement('input', {
+                type: 'text',
+                value: newWorkerName,
+                onChange: (e) => setNewWorkerName(e.target.value),
+                onKeyPress: (e) => e.key === 'Enter' && addWorker(),
+                placeholder: 'הוסף עובד חדש',
+                className: 'flex-1 px-4 py-2 border border-gray-300 rounded-lg text-right focus:outline-none focus:ring-2 focus:ring-indigo-500'
+              }),
+              React.createElement('button', {
+                onClick: addWorker,
+                className: 'bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700'
+              }, '➕ הוסף')
+            ),
+            React.createElement('div', { className: 'flex flex-wrap gap-2' },
+              workers.map(worker => React.createElement('div', { key: worker, className: 'bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full flex items-center gap-2' },
+                worker,
+                React.createElement('button', {
+                  onClick: () => deleteWorker(worker),
+                  className: 'text-red-500 hover:text-red-700'
+                }, '✕')
+              ))
+            )
+          ),
+
+          // Tabs
+          React.createElement('div', { className: 'flex gap-2 mb-6' },
+            React.createElement('button', {
+              onClick: () => setActiveTab('checkin'),
+              className: activeTab === 'checkin'
+                ? 'px-6 py-2 rounded-lg font-bold bg-indigo-600 text-white'
+                : 'px-6 py-2 rounded-lg font-bold bg-white text-indigo-600 border-2 border-indigo-600'
+            }, 'כניסה/יציאה'),
+            React.createElement('button', {
+              onClick: () => setActiveTab('attendance'),
+              className: activeTab === 'attendance'
+                ? 'px-6 py-2 rounded-lg font-bold bg-indigo-600 text-white'
+                : 'px-6 py-2 rounded-lg font-bold bg-white text-indigo-600 border-2 border-indigo-600'
+            }, 'דוח נוכחות יומי'),
+            React.createElement('button', {
+              onClick: () => setActiveTab('report'),
+              className: activeTab === 'report'
+                ? 'px-6 py-2 rounded-lg font-bold bg-indigo-600 text-white'
+                : 'px-6 py-2 rounded-lg font-bold bg-white text-indigo-600 border-2 border-indigo-600'
+            }, 'דוח חודשי')
+          ),
+
+          // Check-in Tab
+          activeTab === 'checkin' && React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-6' },
+            React.createElement('h2', { className: 'text-2xl font-bold text-indigo-800 mb-6' }, 'כניסה/יציאה'),
+            React.createElement('select', {
+              value: selectedWorker,
+              onChange: (e) => setSelectedWorker(e.target.value),
+              className: 'w-full px-4 py-3 border-2 border-indigo-300 rounded-lg text-right text-lg mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500'
+            },
+              React.createElement('option', { value: '' }, 'בחר עובד'),
+              workers.map(worker => React.createElement('option', { key: worker, value: worker }, worker))
+            ),
+            React.createElement('button', {
+              onClick: handleCheckIn,
+              disabled: !selectedWorker,
+              className: selectedWorker
+                ? 'w-full py-3 px-4 rounded-lg font-bold text-white text-lg bg-green-600 hover:bg-green-700'
+                : 'w-full py-3 px-4 rounded-lg font-bold text-white text-lg bg-gray-400 cursor-not-allowed'
+            }, `כניסה ${new Date().toLocaleTimeString('he-IL')}`)
+          ),
+
+          // Attendance Table Tab
+          activeTab === 'attendance' && React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-6' },
+            React.createElement('h2', { className: 'text-2xl font-bold text-indigo-800 mb-4' }, `דוח נוכחות - ${today}`),
+            todayCheckins.length === 0
+              ? React.createElement('p', { className: 'text-gray-500 text-lg' }, 'אין רישומי כניסה היום')
+              : React.createElement('table', { className: 'w-full border-collapse' },
+                  React.createElement('thead', {},
+                    React.createElement('tr', { className: 'bg-indigo-100' },
+                      React.createElement('th', { className: 'border p-3 font-bold text-indigo-800' }, 'שם עובד'),
+                      React.createElement('th', { className: 'border p-3 font-bold text-indigo-800' }, 'שעת כניסה'),
+                      React.createElement('th', { className: 'border p-3 font-bold text-indigo-800' }, 'שעת יציאה'),
+                      React.createElement('th', { className: 'border p-3 font-bold text-indigo-800' }, 'פעולה')
+                    )
+                  ),
+                  React.createElement('tbody', {},
+                    todayCheckins.map(checkin => {
+                      const checkInTime = formatDateTime(checkin.checkInTime);
+                      const checkOutTime = checkin.checkOutTime ? formatDateTime(checkin.checkOutTime) : null;
+                      return React.createElement('tr', { key: checkin.id, className: 'hover:bg-gray-50' },
+                        React.createElement('td', { className: 'border p-3' }, checkin.workerName),
+                        React.createElement('td', { className: 'border p-3' }, checkInTime.time),
+                        React.createElement('td', { className: 'border p-3' }, checkOutTime ? checkOutTime.time : '-'),
+                        React.createElement('td', { className: 'border p-3 text-center' },
+                          !checkin.checkOutTime && React.createElement('button', {
+                            onClick: () => handleCheckOut(checkin.id),
+                            className: 'bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600'
+                          }, '🚪 יציאה')
+                        )
+                      );
+                    })
+                  )
+                )
+          ),
+
+          // Monthly Report Tab
+          activeTab === 'report' && React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-6' },
+            React.createElement('h2', { className: 'text-2xl font-bold text-indigo-800 mb-4' }, 'דוח חודשי'),
+            React.createElement('div', { className: 'mb-4' },
+              React.createElement('input', {
+                type: 'month',
+                value: selectedMonth,
+                onChange: (e) => setSelectedMonth(e.target.value),
+                className: 'px-4 py-2 border-2 border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500'
+              })
+            ),
+            monthStats.length === 0
+              ? React.createElement('p', { className: 'text-gray-500 text-lg' }, 'אין עובדים')
+              : React.createElement('table', { className: 'w-full border-collapse' },
+                  React.createElement('thead', {},
+                    React.createElement('tr', { className: 'bg-indigo-100' },
+                      React.createElement('th', { className: 'border p-3 font-bold text-indigo-800' }, 'שם עובד'),
+                      React.createElement('th', { className: 'border p-3 font-bold text-indigo-800' }, 'ימי נוכחות'),
+                      React.createElement('th', { className: 'border p-3 font-bold text-indigo-800' }, 'סה״כ כניסות'),
+                      React.createElement('th', { className: 'border p-3 font-bold text-indigo-800' }, 'ממוצע שעות')
+                    )
+                  ),
+                  React.createElement('tbody', {},
+                    monthStats.map(stat => React.createElement('tr', { key: stat.worker, className: 'hover:bg-gray-50' },
+                      React.createElement('td', { className: 'border p-3 font-bold' }, stat.worker),
+                      React.createElement('td', { className: 'border p-3 text-center' }, stat.daysPresent),
+                      React.createElement('td', { className: 'border p-3 text-center' }, stat.totalCheckins),
+                      React.createElement('td', { className: 'border p-3 text-center' }, stat.avgHours)
+                    ))
+                  )
+                )
+          )
+        )
+      );
+    };
+
+    ReactDOM.render(React.createElement(HRAttendanceApp), document.getElementById('root'));
+  </script>
+</body>
+</html>

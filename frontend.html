@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ניהול נוכחות עובדים</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      direction: rtl;
+      text-align: right;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    const API_URL = 'http://localhost:5000/api';
+    const { useState, useEffect } = React;
+
+    const HRApp = () => {
+      const [workers, setWorkers] = useState([]);
+      const [newWorkerName, setNewWorkerName] = useState('');
+      const [selectedWorker, setSelectedWorker] = useState('');
+      const [checkins, setCheckins] = useState([]);
+      const [leaves, setLeaves] = useState([]);
+      const [activeTab, setActiveTab] = useState('checkin');
+      const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+      const [leaveForm, setLeaveForm] = useState({ start: '', end: '', type: 'vacation', reason: '' });
+      const [loading, setLoading] = useState(false);
+
+      // Load workers
+      useEffect(() => {
+        fetchWorkers();
+        fetchTodayCheckins();
+        fetchLeaves();
+      }, []);
+
+      const fetchWorkers = async () => {
+        try {
+          const res = await fetch(`${API_URL}/workers`);
+          const data = await res.json();
+          setWorkers(data);
+        } catch (err) {
+          console.error('Error fetching workers:', err);
+        }
+      };
+
+      const fetchTodayCheckins = async () => {
+        try {
+          const res = await fetch(`${API_URL}/checkins/today`);
+          const data = await res.json();
+          setCheckins(data);
+        } catch (err) {
+          console.error('Error fetching checkins:', err);
+        }
+      };
+
+      const fetchMonthCheckins = async (month) => {
+        try {
+          const res = await fetch(`${API_URL}/checkins/month/${month}`);
+          const data = await res.json();
+          setCheckins(data);
+        } catch (err) {
+          console.error('Error fetching month checkins:', err);
+        }
+      };
+
+      const fetchLeaves = async () => {
+        try {
+          const res = await fetch(`${API_URL}/leaves`);
+          const data = await res.json();
+          setLeaves(data);
+        } catch (err) {
+          console.error('Error fetching leaves:', err);
+        }
+      };
+
+      const addWorker = async () => {
+        if (!newWorkerName.trim()) return;
+        setLoading(true);
+        try {
+          const res = await fetch(`${API_URL}/workers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newWorkerName })
+          });
+          if (res.ok) {
+            setNewWorkerName('');
+            fetchWorkers();
+          }
+        } catch (err) {
+          console.error('Error adding worker:', err);
+        }
+        setLoading(false);
+      };
+
+      const deleteWorker = async (id) => {
+        if (confirm('בטוח? זה ימחק את כל הנתונים של העובד')) {
+          try {
+            await fetch(`${API_URL}/workers/${id}`, { method: 'DELETE' });
+            fetchWorkers();
+          } catch (err) {
+            console.error('Error deleting worker:', err);
+          }
+        }
+      };
+
+      const handleCheckIn = async () => {
+        if (!selectedWorker) return;
+        setLoading(true);
+        try {
+          const worker = workers.find(w => w.id == selectedWorker);
+          await fetch(`${API_URL}/checkins`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              worker_id: worker.id,
+              check_in_time: new Date().toISOString()
+            })
+          });
+          fetchTodayCheckins();
+        } catch (err) {
+          console.error('Error checking in:', err);
+        }
+        setLoading(false);
+      };
+
+      const handleCheckOut = async (checkinId) => {
+        setLoading(true);
+        try {
+          await fetch(`${API_URL}/checkins/${checkinId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ check_out_time: new Date().toISOString() })
+          });
+          if (activeTab === 'attendance') {
+            fetchTodayCheckins();
+          } else {
+            fetchMonthCheckins(selectedMonth);
+          }
+        } catch (err) {
+          console.error('Error checking out:', err);
+        }
+        setLoading(false);
+      };
+
+      const handleLeaveRequest = async () => {
+        if (!selectedWorker || !leaveForm.start || !leaveForm.end) {
+          alert('מלא את כל השדות');
+          return;
+        }
+        setLoading(true);
+        try {
+          const worker = workers.find(w => w.id == selectedWorker);
+          await fetch(`${API_URL}/leaves`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              worker_id: worker.id,
+              start_date: leaveForm.start,
+              end_date: leaveForm.end,
+              leave_type: leaveForm.type,
+              reason: leaveForm.reason
+            })
+          });
+          setLeaveForm({ start: '', end: '', type: 'vacation', reason: '' });
+          fetchLeaves();
+        } catch (err) {
+          console.error('Error requesting leave:', err);
+        }
+        setLoading(false);
+      };
+
+      const handleApproveLeave = async (leaveId) => {
+        setLoading(true);
+        try {
+          await fetch(`${API_URL}/leaves/${leaveId}/approve`, { method: 'PATCH' });
+          fetchLeaves();
+        } catch (err) {
+          console.error('Error approving leave:', err);
+        }
+        setLoading(false);
+      };
+
+      const handleRejectLeave = async (leaveId) => {
+        setLoading(true);
+        try {
+          await fetch(`${API_URL}/leaves/${leaveId}/reject`, { method: 'PATCH' });
+          fetchLeaves();
+        } catch (err) {
+          console.error('Error rejecting leave:', err);
+        }
+        setLoading(false);
+      };
+
+      const exportToExcel = async () => {
+        try {
+          const response = await fetch(`${API_URL}/export/monthly/${selectedMonth}`);
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `דוח_נוכחות_${selectedMonth}.xlsx`;
+          a.click();
+        } catch (err) {
+          console.error('Error exporting:', err);
+        }
+      };
+
+      const formatTime = (isoString) => {
+        const date = new Date(isoString);
+        return date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+      };
+
+      const formatDate = (isoString) => {
+        const date = new Date(isoString);
+        return date.toLocaleDateString('he-IL');
+      };
+
+      const getMonthStats = () => {
+        const stats = {};
+        checkins.forEach(c => {
+          if (!stats[c.worker_name]) {
+            stats[c.worker_name] = { days: new Set(), hours: 0, count: 0 };
+          }
+          stats[c.worker_name].count++;
+          stats[c.worker_name].days.add(formatDate(c.check_in_time));
+          if (c.check_out_time) {
+            const inTime = new Date(c.check_in_time).getTime();
+            const outTime = new Date(c.check_out_time).getTime();
+            stats[c.worker_name].hours += (outTime - inTime) / (1000 * 60 * 60);
+          }
+        });
+        return Object.keys(stats).map(name => ({
+          name,
+          days: stats[name].days.size,
+          count: stats[name].count,
+          avgHours: stats[name].count > 0 ? (stats[name].hours / stats[name].count).toFixed(1) : '-'
+        }));
+      };
+
+      return React.createElement('div', { style: { direction: 'rtl' }, className: 'min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6' },
+        React.createElement('div', { className: 'max-w-7xl mx-auto' },
+          // Header
+          React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-6 mb-6' },
+            React.createElement('h1', { className: 'text-4xl font-bold text-indigo-800 mb-2' }, 'ניהול נוכחות עובדים'),
+            React.createElement('p', { className: 'text-gray-600' }, 'מערכת תיעוד נוכחות עובדים בזמן אמת עם ניהול חופשות')
+          ),
+
+          // Worker Management
+          React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-6 mb-6' },
+            React.createElement('h2', { className: 'text-2xl font-bold text-indigo-800 mb-4' }, 'ניהול עובדים'),
+            React.createElement('div', { className: 'flex gap-2 mb-4' },
+              React.createElement('input', {
+                type: 'text',
+                value: newWorkerName,
+                onChange: (e) => setNewWorkerName(e.target.value),
+                onKeyPress: (e) => e.key === 'Enter' && addWorker(),
+                placeholder: 'הוסף עובד חדש',
+                className: 'flex-1 px-4 py-2 border border-gray-300 rounded-lg text-right focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                disabled: loading
+              }),
+              React.createElement('button', {
+                onClick: addWorker,
+                disabled: loading,
+                className: 'bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:bg-gray-400'
+              }, '➕ הוסף')
+            ),
+            React.createElement('div', { className: 'flex flex-wrap gap-2' },
+              workers.map(worker => React.createElement('div', { key: worker.id, className: 'bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full flex items-center gap-2' },
+                worker.name,
+                React.createElement('button', {
+                  onClick: () => deleteWorker(worker.id),
+                  className: 'text-red-500 hover:text-red-700'
+                }, '✕')
+              ))
+            )
+          ),
+
+          // Tabs
+          React.createElement('div', { className: 'flex gap-2 mb-6 flex-wrap' },
+            ['checkin', 'attendance', 'report', 'leaves'].map(tab => React.createElement('button', {
+              key: tab,
+              onClick: () => {
+                setActiveTab(tab);
+                if (tab === 'report') fetchMonthCheckins(selectedMonth);
+                if (tab === 'attendance') fetchTodayCheckins();
+              },
+              className: activeTab === tab
+                ? 'px-6 py-2 rounded-lg font-bold bg-indigo-600 text-white'
+                : 'px-6 py-2 rounded-lg font-bold bg-white text-indigo-600 border-2 border-indigo-600'
+            }, { checkin: 'כניסה/יציאה', attendance: 'דוח היומי', report: 'דוח חודשי', leaves: 'חופשות' }[tab]))
+          ),
+
+          // Check-in Tab
+          activeTab === 'checkin' && React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-6' },
+            React.createElement('h2', { className: 'text-2xl font-bold text-indigo-800 mb-6' }, 'כניסה/יציאה'),
+            React.createElement('select', {
+              value: selectedWorker,
+              onChange: (e) => setSelectedWorker(e.target.value),
+              className: 'w-full px-4 py-3 border-2 border-indigo-300 rounded-lg text-right text-lg mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500',
+              disabled: loading
+            },
+              React.createElement('option', { value: '' }, 'בחר עובד'),
+              workers.map(w => React.createElement('option', { key: w.id, value: w.id }, w.name))
+            ),
+            React.createElement('button', {
+              onClick: handleCheckIn,
+              disabled: !selectedWorker || loading,
+              className: selectedWorker && !loading
+                ? 'w-full py-3 px-4 rounded-lg font-bold text-white text-lg bg-green-600 hover:bg-green-700'
+                : 'w-full py-3 px-4 rounded-lg font-bold text-white text-lg bg-gray-400 cursor-not-allowed'
+            }, `✓ כניסה ${new Date().toLocaleTimeString('he-IL')}`)
+          ),
+
+          // Attendance Table
+          activeTab === 'attendance' && React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-6' },
+            React.createElement('h2', { className: 'text-2xl font-bold text-indigo-800 mb-4' }, 'דוח נוכחות היומי'),
+            checkins.length === 0
+              ? React.createElement('p', { className: 'text-gray-500 text-lg' }, 'אין רישומים היום')
+              : React.createElement('table', { className: 'w-full border-collapse text-sm' },
+                  React.createElement('thead', {},
+                    React.createElement('tr', { className: 'bg-indigo-100' },
+                      React.createElement('th', { className: 'border p-2 font-bold text-indigo-800' }, 'שם עובד'),
+                      React.createElement('th', { className: 'border p-2 font-bold text-indigo-800' }, 'כניסה'),
+                      React.createElement('th', { className: 'border p-2 font-bold text-indigo-800' }, 'יציאה'),
+                      React.createElement('th', { className: 'border p-2 font-bold text-indigo-800' }, 'פעולה')
+                    )
+                  ),
+                  React.createElement('tbody', {},
+                    checkins.map(c => React.createElement('tr', { key: c.id, className: 'hover:bg-gray-50' },
+                      React.createElement('td', { className: 'border p-2' }, c.worker_name),
+                      React.createElement('td', { className: 'border p-2' }, formatTime(c.check_in_time)),
+                      React.createElement('td', { className: 'border p-2' }, c.check_out_time ? formatTime(c.check_out_time) : '-'),
+                      React.createElement('td', { className: 'border p-2 text-center' },
+                        !c.check_out_time && React.createElement('button', {
+                          onClick: () => handleCheckOut(c.id),
+                          disabled: loading,
+                          className: 'bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 disabled:bg-gray-400 text-xs'
+                        }, '🚪 יציאה')
+                      )
+                    ))
+                  )
+                )
+          ),
+
+          // Monthly Report
+          activeTab === 'report' && React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-6' },
+            React.createElement('div', { className: 'flex gap-4 mb-4' },
+              React.createElement('input', {
+                type: 'month',
+                value: selectedMonth,
+                onChange: (e) => {
+                  setSelectedMonth(e.target.value);
+                  fetchMonthCheckins(e.target.value);
+                },
+                className: 'px-4 py-2 border-2 border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500'
+              }),
+              React.createElement('button', {
+                onClick: exportToExcel,
+                className: 'bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700'
+              }, '📊 ייצוא ל-Excel')
+            ),
+            React.createElement('h2', { className: 'text-2xl font-bold text-indigo-800 mb-4' }, `דוח חודשי - ${selectedMonth}`),
+            checkins.length === 0
+              ? React.createElement('p', { className: 'text-gray-500' }, 'אין נתונים לחודש זה')
+              : React.createElement('table', { className: 'w-full border-collapse text-sm' },
+                  React.createElement('thead', {},
+                    React.createElement('tr', { className: 'bg-indigo-100' },
+                      React.createElement('th', { className: 'border p-2 font-bold text-indigo-800' }, 'שם עובד'),
+                      React.createElement('th', { className: 'border p-2 font-bold text-indigo-800' }, 'ימי נוכחות'),
+                      React.createElement('th', { className: 'border p-2 font-bold text-indigo-800' }, 'כניסות'),
+                      React.createElement('th', { className: 'border p-2 font-bold text-indigo-800' }, 'ממוצע שעות')
+                    )
+                  ),
+                  React.createElement('tbody', {},
+                    getMonthStats().map(stat => React.createElement('tr', { key: stat.name, className: 'hover:bg-gray-50' },
+                      React.createElement('td', { className: 'border p-2 font-bold' }, stat.name),
+                      React.createElement('td', { className: 'border p-2 text-center' }, stat.days),
+                      React.createElement('td', { className: 'border p-2 text-center' }, stat.count),
+                      React.createElement('td', { className: 'border p-2 text-center' }, stat.avgHours)
+                    ))
+                  )
+                )
+          ),
+
+          // Leaves Tab
+          activeTab === 'leaves' && React.createElement('div', { className: 'grid grid-cols-1 lg:grid-cols-2 gap-6' },
+            // Leave Request Form
+            React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-6' },
+              React.createElement('h2', { className: 'text-2xl font-bold text-indigo-800 mb-4' }, 'בקשת חופשה'),
+              React.createElement('select', {
+                value: selectedWorker,
+                onChange: (e) => setSelectedWorker(e.target.value),
+                className: 'w-full px-4 py-2 border-2 border-indigo-300 rounded-lg text-right mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                disabled: loading
+              },
+                React.createElement('option', { value: '' }, 'בחר עובד'),
+                workers.map(w => React.createElement('option', { key: w.id, value: w.id }, w.name))
+              ),
+              React.createElement('input', {
+                type: 'date',
+                value: leaveForm.start,
+                onChange: (e) => setLeaveForm({ ...leaveForm, start: e.target.value }),
+                className: 'w-full px-4 py-2 border-2 border-indigo-300 rounded-lg text-right mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                disabled: loading,
+                placeholder: 'תאריך התחלה'
+              }),
+              React.createElement('input', {
+                type: 'date',
+                value: leaveForm.end,
+                onChange: (e) => setLeaveForm({ ...leaveForm, end: e.target.value }),
+                className: 'w-full px-4 py-2 border-2 border-indigo-300 rounded-lg text-right mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                disabled: loading,
+                placeholder: 'תאריך סיום'
+              }),
+              React.createElement('select', {
+                value: leaveForm.type,
+                onChange: (e) => setLeaveForm({ ...leaveForm, type: e.target.value }),
+                className: 'w-full px-4 py-2 border-2 border-indigo-300 rounded-lg text-right mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                disabled: loading
+              },
+                React.createElement('option', { value: 'vacation' }, 'חופשה'),
+                React.createElement('option', { value: 'sick' }, 'מחלה'),
+                React.createElement('option', { value: 'personal' }, 'אישי')
+              ),
+              React.createElement('textarea', {
+                value: leaveForm.reason,
+                onChange: (e) => setLeaveForm({ ...leaveForm, reason: e.target.value }),
+                placeholder: 'סיבה (אופציונלי)',
+                className: 'w-full px-4 py-2 border-2 border-indigo-300 rounded-lg text-right mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                disabled: loading,
+                rows: 3
+              }),
+              React.createElement('button', {
+                onClick: handleLeaveRequest,
+                disabled: loading || !selectedWorker,
+                className: selectedWorker && !loading
+                  ? 'w-full py-2 px-4 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700'
+                  : 'w-full py-2 px-4 rounded-lg font-bold text-white bg-gray-400 cursor-not-allowed'
+              }, '✓ שלח בקשה')
+            ),
+
+            // Leaves List
+            React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-6' },
+              React.createElement('h2', { className: 'text-2xl font-bold text-indigo-800 mb-4' }, 'בקשות חופשה'),
+              leaves.length === 0
+                ? React.createElement('p', { className: 'text-gray-500' }, 'אין בקשות')
+                : React.createElement('div', { className: 'space-y-3' },
+                    leaves.map(leave => React.createElement('div', { key: leave.id, className: 'border-l-4 border-indigo-500 pl-4 py-2 bg-gray-50 rounded' },
+                      React.createElement('div', { className: 'font-bold' }, leave.worker_name),
+                      React.createElement('div', { className: 'text-sm text-gray-600' }, `${leave.start_date} עד ${leave.end_date}`),
+                      React.createElement('div', { className: 'text-sm' }, `סוג: ${{ vacation: 'חופשה', sick: 'מחלה', personal: 'אישי' }[leave.leave_type]}`),
+                      React.createElement('div', { className: `text-sm font-bold ${leave.status === 'pending' ? 'text-yellow-600' : leave.status === 'approved' ? 'text-green-600' : 'text-red-600'}` }, `סטטוס: ${{ pending: 'בהמתנה', approved: 'אושר', rejected: 'נדחה' }[leave.status]}`),
+                      leave.status === 'pending' && React.createElement('div', { className: 'flex gap-2 mt-2' },
+                        React.createElement('button', {
+                          onClick: () => handleApproveLeave(leave.id),
+                          disabled: loading,
+                          className: 'bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 disabled:bg-gray-400'
+                        }, '✓ אישור'),
+                        React.createElement('button', {
+                          onClick: () => handleRejectLeave(leave.id),
+                          disabled: loading,
+                          className: 'bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700 disabled:bg-gray-400'
+                        }, '✕ דחייה')
+                      )
+                    ))
+                  )
+            )
+          )
+        )
+      );
+    };
+
+    ReactDOM.render(React.createElement(HRApp), document.getElementById('root'));
+  </script>
+</body>
+</html>

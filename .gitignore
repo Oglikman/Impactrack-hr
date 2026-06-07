@@ -1,0 +1,9 @@
+node_modules/
+.env
+hr_attendance.db
+*.log
+.DS_Store
+.vscode/
+.idea/
+dist/
+build/
