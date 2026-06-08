@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Impactrack HR - Quick Links</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      direction: rtl;
+      text-align: right;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-8">
+  <div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-lg shadow-2xl p-8">
+      <h1 class="text-4xl font-bold text-indigo-800 mb-2 text-center">Impactrack HR</h1>
+      <p class="text-gray-600 text-center mb-8">Quick Links for Testing</p>
+
+      <div class="space-y-4">
+        <!-- Admin Link -->
+        <a href="https://web-production-9b7d0.up.railway.app/admin.html" target="_blank" class="block">
+          <div class="bg-red-50 border-2 border-red-300 rounded-lg p-6 hover:bg-red-100 transition cursor-pointer">
+            <h2 class="text-2xl font-bold text-red-600 mb-2">👤 Admin Dashboard</h2>
+            <p class="text-gray-600 mb-3">Manage workers, approve leaves, view reports</p>
+            <p class="text-sm font-mono text-red-700 break-all">https://web-production-9b7d0.up.railway.app/admin.html</p>
+          </div>
+        </a>
+
+        <!-- Worker Link -->
+        <a href="https://web-production-9b7d0.up.railway.app/worker.html" target="_blank" class="block">
+          <div class="bg-green-50 border-2 border-green-300 rounded-lg p-6 hover:bg-green-100 transition cursor-pointer">
+            <h2 class="text-2xl font-bold text-green-600 mb-2">👥 Worker Dashboard</h2>
+            <p class="text-gray-600 mb-3">Check-in, view history, request leaves</p>
+            <p class="text-sm font-mono text-green-700 break-all">https://web-production-9b7d0.up.railway.app/worker.html</p>
+          </div>
+        </a>
+      </div>
+
+      <!-- Info Box -->
+      <div class="mt-8 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+        <h3 class="font-bold text-blue-900 mb-2">💡 Testing Tips:</h3>
+        <ul class="text-sm text-blue-800 space-y-1">
+          <li>• Use <strong>Incognito/Private</strong> window for testing different accounts</li>
+          <li>• Clear cookies if you experience login issues</li>
+          <li>• Both interfaces use Google OAuth login</li>
+          <li>• Admin users see all data, workers see only their own</li>
+        </ul>
+      </div>
+
+      <!-- Copy Links Section -->
+      <div class="mt-8 pt-8 border-t border-gray-200">
+        <h3 class="font-bold text-gray-800 mb-4">📋 Copy URLs:</h3>
+        <div class="space-y-2">
+          <div class="flex gap-2">
+            <input type="text" value="https://web-production-9b7d0.up.railway.app/admin.html" readonly class="flex-1 px-3 py-2 border border-gray-300 rounded text-sm" id="adminUrl">
+            <button onclick="copyToClipboard('adminUrl')" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm font-bold">Copy</button>
+          </div>
+          <div class="flex gap-2">
+            <input type="text" value="https://web-production-9b7d0.up.railway.app/worker.html" readonly class="flex-1 px-3 py-2 border border-gray-300 rounded text-sm" id="workerUrl">
+            <button onclick="copyToClipboard('workerUrl')" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm font-bold">Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center mt-8 text-gray-600 text-sm">
+      <p>Bookmark this page for quick access during testing</p>
+    </div>
+  </div>
+
+  <script>
+    function copyToClipboard(elementId) {
+      const element = document.getElementById(elementId);
+      element.select();
+      document.execCommand('copy');
+
+      // Show feedback
+      const button = event.target;
+      const originalText = button.textContent;
+      button.textContent = '✓ Copied!';
+      button.classList.add('bg-green-600');
+      button.classList.remove('bg-indigo-600');
+
+      setTimeout(() => {
+        button.textContent = originalText;
+        button.classList.remove('bg-green-600');
+        button.classList.add('bg-indigo-600');
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
