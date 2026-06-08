@@ -111,7 +111,6 @@ passport.use(new GoogleStrategy({
     callbackURL: '/auth/google/callback'
   },
   (accessToken, refreshToken, profile, done) => {
-  (accessToken, refreshToken, profile, done) => {
     const { id, displayName, emails } = profile;
     const email = emails && emails[0] ? emails[0].value : '';
 
