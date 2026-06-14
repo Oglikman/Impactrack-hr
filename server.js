@@ -189,10 +189,18 @@ app.get('/auth/google/callback', passport.authenticate('google', { failureRedire
     return res.redirect('/worker.html');
   }
 
-  // Redirect to appropriate interface based on role
-  const redirectUrl = req.user.role === 'admin' ? '/admin.html' : '/worker.html';
-  console.log('Redirecting to:', redirectUrl);
-  res.redirect(redirectUrl);
+  // Save session before redirecting
+  req.session.save((err) => {
+    if (err) {
+      console.error('ERROR saving session:', err);
+      return res.redirect('/worker.html');
+    }
+
+    // Redirect to appropriate interface based on role
+    const redirectUrl = req.user.role === 'admin' ? '/admin.html' : '/worker.html';
+    console.log('✓ Session saved. Redirecting to:', redirectUrl);
+    res.redirect(redirectUrl);
+  });
 });
 
 app.get('/auth/logout', (req, res) => {
