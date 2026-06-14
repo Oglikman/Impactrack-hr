@@ -5,7 +5,6 @@ const sqlite3 = require('sqlite3').verbose();
 const ExcelJS = require('exceljs');
 const path = require('path');
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
 const cookieParser = require('cookie-parser');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
@@ -92,7 +91,6 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname))); // Serve HTML files
 app.use(session({
-  store: new SQLiteStore({ db: 'sessions.db' }),
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
