@@ -92,8 +92,8 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname))); // Serve HTML files
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: false,
+  resave: true,
+  saveUninitialized: true,
   cookie: {
     secure: process.env.NODE_ENV === 'production' ? true : false,
     httpOnly: true,
