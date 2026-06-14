@@ -180,28 +180,26 @@ const requireAdmin = (req, res, next) => {
 // ========== AUTHENTICATION ROUTES ==========
 app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login-error.html' }), (req, res) => {
-  console.log('✓ OAuth callback successful');
-  console.log('User:', req.user);
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/worker.html' }),
+  (req, res) => {
+    console.log('✓ OAuth callback successful');
+    console.log('User:', req.user);
 
-  if (!req.user) {
-    console.error('ERROR: req.user is undefined after OAuth');
-    return res.redirect('/worker.html');
+    // Use Passport's login method to properly establish session
+    req.login(req.user, { session: true }, (err) => {
+      if (err) {
+        console.error('ERROR in req.login:', err);
+        return res.redirect('/worker.html');
+      }
+
+      // Redirect to appropriate interface based on role
+      const redirectUrl = req.user.role === 'admin' ? '/admin.html' : '/worker.html';
+      console.log('✓ Logged in via Passport. Redirecting to:', redirectUrl);
+      res.redirect(redirectUrl);
+    });
   }
-
-  // Save session before redirecting
-  req.session.save((err) => {
-    if (err) {
-      console.error('ERROR saving session:', err);
-      return res.redirect('/worker.html');
-    }
-
-    // Redirect to appropriate interface based on role
-    const redirectUrl = req.user.role === 'admin' ? '/admin.html' : '/worker.html';
-    console.log('✓ Session saved. Redirecting to:', redirectUrl);
-    res.redirect(redirectUrl);
-  });
-});
+);
 
 app.get('/auth/logout', (req, res) => {
   req.logout((err) => {
